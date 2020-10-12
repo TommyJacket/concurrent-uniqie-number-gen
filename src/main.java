@@ -15,19 +15,19 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class main {
     private static final int NUMBER_OF_THREADS = 2;
-    private static final int UPPER_VALUE = 100;
+    private static final int UPPER_VALUE = Integer.MAX_VALUE;
 
     public static void main(String[] args) throws IOException {
-        DbReplacement dbRep = new DbReplacement();
+        Vault vault = new Vault();
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
-        server.createContext("/getNumber", new GetRequestHandler(dbRep));
+        server.createContext("/getNumber", new GetRequestHandler(vault));
         Executor executor = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
         server.setExecutor(executor);
         server.start();
     }
 
-    private static class DbReplacement {
+    private static class Vault {
         private List<Integer> generatedNumbers = new ArrayList<>();
         private ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock();
         private Lock readLock = reentrantReadWriteLock.readLock();
@@ -63,10 +63,10 @@ public class main {
 
     private static class GetRequestHandler implements HttpHandler {
 
-        private final DbReplacement dbRep;
+        private final Vault vault;
 
-        public GetRequestHandler(DbReplacement dbRep) {
-            this.dbRep = dbRep;
+        public GetRequestHandler(Vault vault) {
+            this.vault = vault;
         }
 
         @Override
@@ -74,14 +74,14 @@ public class main {
             final Integer[] result = {0};
             Thread requestThread = new Thread(() -> {
                 boolean success = false;
-                if (dbRep.allPossibleNumbersGenerated()) {
+                if (vault.allPossibleNumbersGenerated()) {
                     result[0] = -1;
                     return;
                 }
                 while (!success) {
                     Integer generatedNumber = ThreadLocalRandom.current().nextInt(UPPER_VALUE);
-                    if (!dbRep.alreadyGenerated(generatedNumber)) {
-                        dbRep.addNumber(generatedNumber);
+                    if (!vault.alreadyGenerated(generatedNumber)) {
+                        vault.addNumber(generatedNumber);
                         result[0] = generatedNumber;
                         success = true;
                     }
@@ -91,7 +91,7 @@ public class main {
             try {
                 requestThread.join();
             } catch (InterruptedException ex) {
-                System.out.println("!!!!!!!");
+                ex.printStackTrace();
             }
             String respJson = String.format("{\"id\": %s}", result[0]);
             byte[] response = respJson.getBytes();
